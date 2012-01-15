@@ -1,0 +1,162 @@
+<head>
+<script language="javascript" type="text/javascript" src="./js/ez.js"></script>
+</head><body style='border:0;padding:0;margin:0;height:100%;width:100%;'>
+<canvas id='myCanvas' width="100%" height="100%" style="background:#000 url('img/nebula.jpg');"></canvas>
+</body>
+<script>
+	ez.startUp.push(function(){
+		var daily=0,tick=0,day=(-2*Math.PI)/365,width=document.width,height=document.height,
+			cx=ez.getId('myCanvas').getContext('2d');
+		scale=width/15000;
+		xOff=0;
+		yOff=0;
+		cx.canvas.width=document.width;
+		cx.canvas.height=document.height;
+		ez.keyhook.standard=function(n){};
+		ez.keyhook.keys[107]=function(){scale+=0.05;};
+		ez.keyhook.keys[187]=function(){scale+=0.05;};
+		ez.keyhook.keys[109]=function(){scale-=0.05;if(!(scale>0)){scale+=0.05;}};
+		ez.keyhook.keys[189]=function(){scale-=0.05;if(!(scale>0)){scale+=0.05;}};
+		ez.keyhook.keys[38]=function(){yOff+=100;return false};
+		ez.keyhook.keys[87]=function(){yOff+=100;return false};
+		ez.keyhook.keys[40]=function(){yOff-=100;return false};
+		ez.keyhook.keys[83]=function(){yOff-=100;return false};
+		ez.keyhook.keys[37]=function(){xOff+=100;return false};
+		ez.keyhook.keys[65]=function(){xOff+=100;return false};
+		ez.keyhook.keys[39]=function(){xOff-=100;return false};
+		ez.keyhook.keys[68]=function(){xOff-=100;return false};
+		ez.keyhook.start();
+		var polygon=function(cx,radius,sides,fill,stroke){
+			if(!(cx&&radius&&(sides-2))){return false}
+			var delta_theta = 2.0 * Math.PI / sides,
+				theta = 0,
+				stroke=arguments.length>4?stroke:true;
+			cx.beginPath();
+			for (var i = 0; i < sides; i++){
+				x = (radius * Math.cos(theta));
+				y = (radius * Math.sin(theta));
+				i?cx.lineTo(x,y):cx.moveTo(x,y);
+				theta += delta_theta
+			}
+			cx.closePath();
+			fill && cx.fill();
+			stroke && cx.stroke();
+		};
+		var Planet=function(cx,opts){
+			var opts=opts||{};
+			this.cx=cx;
+			this.size=opts.size||10;
+			this.color=opts.color||'#fff';
+			this.sides=opts.sides||5;
+			this.semiMajor=opts.semiMajor||50;
+			this.rot=isFinite(opts.rot)?opts.rot:(2*Math.PI)/365;
+			this.speed=opts.minSpeed||(-2*Math.PI)/365;
+			this.ecc=opts.ecc||0;
+			this.rotOffset=opts.rotOffset||0;
+			this.x=opts.x||0;
+			this.y=opts.y||0;
+			this.extra=opts.extra||function(){};
+			this.pos={orbRot:0,rot:0,theta:0};
+			this.pos.dist=(this.semiMajor*(1-(this.ecc*this.ecc)))/(1+Math.cos(this.pos.theta)*this.ecc);
+			this.maxDist=(this.semiMajor*(1-(this.ecc*this.ecc)))/(1-this.ecc);
+			this.moons=[];
+			this.draw=function(){
+				cx.save();
+				cx.translate(this.x,this.y);//start
+				cx.rotate(this.rotOffset);//orbit rotation offset
+				//this.pos.orbRot+=this.speed;
+				this.pos.orbRot+=this.speed*((this.maxDist*this.maxDist)/(this.pos.dist*this.pos.dist));
+				this.pos.orbRot%=(2*Math.PI);
+				//console.log(this.pos.dist*this.pos.dist);
+				this.pos.theta=2*Math.atan2(Math.sqrt(1-this.ecc)*Math.cos(this.pos.orbRot/2),Math.sqrt(1+this.ecc)*Math.sin(this.pos.orbRot/2));
+				cx.rotate(this.pos.orbRot);//orbital rotation
+				this.pos.dist=(this.semiMajor*(1-(this.ecc*this.ecc)))/(1+Math.cos(this.pos.theta)*this.ecc);
+				//console.log(this.pos.dist);
+				cx.translate(this.pos.dist,0);//orbital distance
+				cx.save();
+					this.pos.rot+=this.rot;
+					cx.rotate(this.pos.rot);//planet rotation
+					cx.fillStyle=this.color;
+					cx.save();
+						polygon(cx,this.size,this.sides,true,true);
+					cx.restore();
+					this.extra();
+				cx.restore();
+				for(var i=0,ii=this.moons.length;i<ii;i++){
+					this.moons[i].draw(this.x,this.y);
+				}
+				cx.restore();
+			}
+			this.traceOrbit=function(){
+				//draw ellipse
+			}
+		};
+		var earth= new Planet(cx,{rot:0,ecc: 0.017,semiMajor:150,rotOffset:-0.5,size:6.4,color:'#B4D455'});
+		earth.moons.push(new Planet(cx,{size:1.8,sides:5,minSpeed:day*(1/0.07),rot:0,semiMajor:19}));
+		var mercury=new Planet(cx,{rot:day*(365/59),semiMajor:58,ecc:0.205,minSpeed:day*(1/0.24),size:3,sides:6});
+		var venus=new Planet(cx,{rot:-day*(365/243),color:'#F520AA',semiMajor:108,ecc:0.007,minSpeed:day*(1/0.62),size:6,sides:4});
+		var mars=new Planet(cx,{color:'#F53C20',semiMajor:228,ecc:0.093,minSpeed:day*(1/1.88),size:3.4,sides:7,rot:0});
+		mars.moons.push(new Planet(cx,{sides:3,size:2,ecc:0.015,minSpeed:0.2,semiMajor:12}));//Phobos
+		mars.moons.push(new Planet(cx,{sides:3,size:2,minSpeed:0.1,semiMajor:16}));//Deimos
+		var jupiter=new Planet(cx,{rot:day,sides:12,size:70,semiMajor:779,ecc:0.049,minSpeed:day*(1/11.8),color:'#F53C20',
+			extra:function(){cx.fillStyle='#000';cx.globalAlpha=0.2;cx.translate(40,0);polygon(cx,15,9,true,false);}});
+		jupiter.moons.push(new Planet(cx,{sides:4,size:4,minSpeed:0.4,semiMajor:100,ecc:0.0041,color:'#F5CA1D'}));//Io
+		jupiter.moons.push(new Planet(cx,{sides:3,size:3,minSpeed:0.2,semiMajor:120,ecc:0.009}));//Europa
+		jupiter.moons.push(new Planet(cx,{sides:5,size:5,minSpeed:0.1,semiMajor:150,ecc:0.0013}));//Ganymede
+		jupiter.moons.push(new Planet(cx,{sides:5,size:5,minSpeed:0.05,semiMajor:200,ecc:0.007}));//Callisto
+		var saturn=new Planet(cx,{sides:9,size:60,semiMajor:1433,ecc:0.056,minSpeed:day*(1/29.5),color:'#FFDD00',
+			extra:function(){cx.strokeStyle='#F5CA1D';cx.lineWidth=6;cx.globalAlpha=0.3;
+				var lingrad2=cx.createLinearGradient(0,0,0,50);lingrad2.addColorStop(0,'#FFF');lingrad2.addColorStop(1,'rgba(0,0,0,0)');cx.strokeStyle=lingrad2;
+				cx.beginPath();cx.arc(0,0,70,0,Math.PI*2,true);cx.closePath();cx.stroke();
+				cx.beginPath();cx.arc(0,0,80,0,Math.PI*2,true);cx.closePath();cx.stroke();
+				cx.beginPath();cx.arc(0,0,82,0,Math.PI*2,true);cx.closePath();cx.stroke();}});
+		saturn.moons.push(new Planet(cx,{sides:6,size:3,minSpeed:0.26,semiMajor:150,ecc:0.0288}));//Titan
+		saturn.moons.push(new Planet(cx,{sides:4,size:2,minSpeed:0.4,semiMajor:115,ecc:0.001}));//Rhea
+		var uranus=new Planet(cx,{semiMajor:2876,ecc:0.044,minSpeed:day*(1/84.3),size:25,sides:15});
+		uranus.moons.push(new Planet(cx,{sides:5,size:2,minSpeed:0.32,semiMajor:40,color:'#ED29FF'}));//Miranda
+		uranus.moons.push(new Planet(cx,{sides:5,size:3,minSpeed:0.16,semiMajor:60}));//Ariel
+		uranus.moons.push(new Planet(cx,{sides:5,size:3,minSpeed:0.08,semiMajor:80}));//Umbriel
+		uranus.moons.push(new Planet(cx,{sides:5,size:5,minSpeed:0.04,semiMajor:100}));//Titania
+		uranus.moons.push(new Planet(cx,{sides:5,size:4,minSpeed:0.02,semiMajor:120}));//Oberon
+		var neptune=new Planet(cx,{color:'#1DBFF5',semiMajor:4503,ecc:0.011,minSpeed:day*(1/164.8),size:25,sides:14});
+		neptune.moons.push(new Planet(cx,{sides:3,size:2,minSpeed:-0.5,semiMajor:180}));//Triton
+		var pluto=new Planet(cx,{semiMajor:5906,ecc:0.249,minSpeed:day*(1/248),size:4,sides:4});
+		//add Charon here
+		(function(){
+			cx.clearRect(0,0,width,height);
+			tick++;
+			daily+=day;
+			cx.save();
+				cx.translate(width/2,height/2);
+				cx.translate(xOff,yOff);
+				cx.scale(scale,scale);
+				cx.lineWidth=1;
+				cx.strokeStyle='#FFF';
+				//Sun
+				cx.save();
+					cx.globalAlpha=0.5;
+					cx.fillStyle='#FFDD00';
+					cx.strokeStyle='#FFDB0D';
+					cx.lineWidth=2;
+					cx.rotate(daily);
+					polygon(cx,5,12,true);
+					polygon(cx,3*(Math.sin(tick/20))+6,7,true);
+				cx.restore();
+				mercury.draw();
+				venus.draw();
+				earth.draw();
+				mars.draw();
+				jupiter.draw();
+				saturn.draw();
+				uranus.draw();
+				neptune.draw();
+				pluto.draw();
+			cx.restore();
+			cx.font = "12pt Arial";
+			cx.fillStyle='#fff';
+			cx.globalAlpha=1;
+			cx.fillText(~~(tick/365)+' Years, '+tick%365+' Days',10,14);
+			setTimeout(arguments.callee,30);
+		})();
+	});
+</script>
